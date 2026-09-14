@@ -31,6 +31,7 @@ type TweetCard = Parameters<typeof tweetSettingsFromCard>[0]
 export function useCanvasMediaIntake({
   scopeId,
   isCanvasPreview,
+  isActive,
   slotCount,
   tweet,
   setScreenshot,
@@ -41,6 +42,7 @@ export function useCanvasMediaIntake({
 }: {
   scopeId: string | null | undefined
   isCanvasPreview: boolean
+  isActive: boolean
   slotCount: number
   tweet: TweetCard | null | undefined
   setScreenshot: (src: string) => void
@@ -112,6 +114,8 @@ export function useCanvasMediaIntake({
     // dropping/pasting one into the main box (and route slots reject it too).
     allowVideo: slotCount === 0,
     onPreparingChange: setPreparingMedia,
+    // Only the active editable canvas owns global paste.
+    enabled: isActive && !isCanvasPreview,
   })
 
   const handleCaptureWebsite = React.useCallback(

@@ -349,6 +349,7 @@ function CanvasViewInner({
   } = useCanvasMediaIntake({
     scopeId,
     isCanvasPreview,
+    isActive,
     slotCount: screenshotSlots.length,
     tweet,
     setScreenshot,
