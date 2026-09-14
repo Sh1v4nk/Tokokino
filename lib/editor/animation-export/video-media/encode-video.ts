@@ -29,7 +29,7 @@ import {
   throwIfAborted,
 } from "../utils"
 import { prepareAnimationAudio } from "../animation-audio"
-import type { VideoSegment } from "../video-layer"
+import { segmentsAreSilent, type VideoSegment } from "../video-layer"
 import { createVideoMuxSession } from "../workers/video-muxer-client"
 import { loadAudioSourceBlob } from "./audio"
 import { blitFrame, type FramePlan, type RenderFrame } from "./frames"
@@ -150,7 +150,10 @@ export async function encodeMp4OrWebm(
   // Read once and share with the fallback: this is the whole source clip, and
   // re-reading it on the fallback path doubles the cost for a long video.
   // Best-effort — missing/unusable audio → silent video, never fail the export.
-  const audioBlob = await loadAudioSourceBlob(sourceSrc, signal)
+  // A fully muted track skips the read outright.
+  const audioBlob = segmentsAreSilent(segments)
+    ? null
+    : await loadAudioSourceBlob(sourceSrc, signal)
 
   try {
     const encoded = await tryEncodeInWorker(

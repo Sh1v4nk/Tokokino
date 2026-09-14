@@ -27,7 +27,7 @@ import {
 } from "mediabunny"
 
 import { throwIfAborted } from "./abort"
-import type { VideoSegment } from "./video-layer"
+import { segmentsAreSilent, type VideoSegment } from "./video-layer"
 import {
   containerAudioCodecs,
   prepareSourceAudio,
@@ -43,7 +43,14 @@ export function isUntouchedTimeline(
   segments: readonly VideoSegment[]
 ): boolean {
   const only = segments.length === 1 ? segments[0] : null
-  return !!only && only.timelineStartMs === 0 && only.sourceStartMs === 0
+  // A muted section is not passthrough material: the remux would carry the very
+  // audio the mute is meant to drop.
+  return (
+    !!only &&
+    !only.muted &&
+    only.timelineStartMs === 0 &&
+    only.sourceStartMs === 0
+  )
 }
 
 /**
@@ -88,6 +95,9 @@ export async function prepareAnimationAudio({
 }): Promise<SourceAudioFeed | null> {
   const windowSec = audioWindowSec(segments, exportDurationSec)
   if (windowSec <= 0) return null
+  // Every section muted means a silent export — no track at all, rather than an
+  // empty one for players to puzzle over.
+  if (segmentsAreSilent(segments)) return null
 
   if (isUntouchedTimeline(segments)) {
     return prepareSourceAudio(source, format, outputFormat, windowSec, signal)
@@ -143,6 +153,9 @@ export async function prepareAnimationAudio({
       feed: async () => {
         const sink = new AudioSampleSink(track)
         for (const segment of ordered) {
+          // A muted section emits nothing: the gap it leaves in the track is the
+          // silence, and it costs no decode.
+          if (segment.muted) continue
           const startSec = segment.sourceStartMs / 1000
           const endSec = segment.sourceEndMs / 1000
           if (endSec <= startSec) continue

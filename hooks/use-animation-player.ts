@@ -3,6 +3,8 @@
 import * as React from "react"
 
 import { useEditorStore } from "@/lib/editor/store"
+import type { AnimationClip } from "@/lib/editor/state-types"
+import { mutedAt } from "@/lib/editor/audio-timeline"
 import { getVideoMutedPreferenceSync } from "@/lib/editor/video-mute-preference"
 import { sourceTimeAt, videoClipAtTime } from "@/lib/editor/video-timeline-map"
 import { useVideoRegistry } from "@/lib/editor/video-registry"
@@ -28,6 +30,9 @@ const AnimationPlayerContext = React.createContext<PlayerContextValue | null>(
  * otherwise re-render at 60fps) read this instead. */
 const AnimationPlayingContext = React.createContext(false)
 
+/** Stable identity so the clips selector can't loop the store subscription. */
+const EMPTY_CLIPS: AnimationClip[] = []
+
 /**
  * Owns playback state for Animate mode. Playhead + isPlaying live here (not in
  * the Zustand store) so scrubbing at 60fps doesn't flood undo history. The
@@ -52,6 +57,11 @@ export function AnimationPlayerProvider({
       s.present.canvases.find((c) => c.id === s.present.activeCanvasId)
         ?.videoClips ?? null
   )
+  const animationClips = useEditorStore(
+    (s) =>
+      s.present.canvases.find((c) => c.id === s.present.activeCanvasId)
+        ?.animation?.clips ?? EMPTY_CLIPS
+  )
 
   const [playheadMs, setPlayheadMs] = React.useState(0)
   const [isPlaying, setIsPlaying] = React.useState(false)
@@ -63,6 +73,12 @@ export function AnimationPlayerProvider({
     durationRef.current = durationMs
   }, [durationMs])
 
+  const isAnimateMode = useEditorStore((s) => s.isAnimateMode)
+  const isAnimateModeRef = React.useRef(isAnimateMode)
+  React.useEffect(() => {
+    isAnimateModeRef.current = isAnimateMode
+  }, [isAnimateMode])
+
   const activeCanvasIdRef = React.useRef(activeCanvasId)
   React.useEffect(() => {
     activeCanvasIdRef.current = activeCanvasId
@@ -73,17 +89,80 @@ export function AnimationPlayerProvider({
     videoClipsRef.current = videoClips
   }, [videoClips])
 
+  const animationClipsRef = React.useRef(animationClips)
+  React.useEffect(() => {
+    animationClipsRef.current = animationClips
+  }, [animationClips])
+
+  /** The layered mute — keyframe clip first, then video section. */
+  const mutedAtMs = React.useCallback(
+    (ms: number, mediaDurationMs?: number) =>
+      mutedAt(ms, {
+        animationClips: isAnimateModeRef.current
+          ? animationClipsRef.current
+          : EMPTY_CLIPS,
+        videoClips: videoClipsRef.current,
+        mediaDurationMs,
+        defaultMuted: getVideoMutedPreferenceSync(
+          isAnimateModeRef.current ? "animate" : "present"
+        ),
+      }),
+    []
+  )
+
   const videoClipAt = React.useCallback(
     (ms: number, mediaDurationMs?: number) =>
       videoClipAtTime(videoClipsRef.current, ms, mediaDurationMs),
     []
   )
 
+  const playheadRef = React.useRef(playheadMs)
+  React.useEffect(() => {
+    playheadRef.current = playheadMs
+  }, [playheadMs])
+
   // The active canvas's <video> element, when its base layer is a video.
   const getVideo = React.useCallback(() => {
     const id = activeCanvasIdRef.current
     return id ? (useVideoRegistry.getState().videos[id] ?? null) : null
   }, [])
+
+  // The registry parks a newly mounted <video> on the device mute preference,
+  // which drops a per-section mute across a reload: the section's value is
+  // persisted with the draft, but nothing applied it until playback started, so
+  // the control bar (which reads the element) kept showing the wrong icon.
+  // Re-apply it at rest, whenever the element or the track changes.
+  React.useEffect(() => {
+    let el: HTMLVideoElement | null = null
+    const apply = () => {
+      if (!el) return
+      const mediaDurationMs = Number.isFinite(el.duration)
+        ? el.duration * 1000
+        : undefined
+      el.muted = mutedAtMs(playheadRef.current, mediaDurationMs)
+    }
+    const attach = () => {
+      const next = getVideo()
+      if (next === el) return
+      el?.removeEventListener("loadedmetadata", apply)
+      el = next
+      el?.addEventListener("loadedmetadata", apply)
+      apply()
+    }
+    attach()
+    const unsubscribe = useVideoRegistry.subscribe(attach)
+    return () => {
+      unsubscribe()
+      el?.removeEventListener("loadedmetadata", apply)
+    }
+  }, [
+    activeCanvasId,
+    isAnimateMode,
+    videoClips,
+    animationClips,
+    getVideo,
+    mutedAtMs,
+  ])
 
   // Lazy: the provider re-renders every frame while playing, and an eager
   // `useRef(createVideoSeeker())` would build a seeker per frame to discard it.
@@ -109,14 +188,14 @@ export function AnimationPlayerProvider({
         duration != null ? duration * 1000 : undefined
       )
       if (!clip) return
-      el.muted = clip.muted ?? getVideoMutedPreferenceSync()
+      el.muted = mutedAtMs(ms, duration != null ? duration * 1000 : undefined)
       const seconds = sourceTimeAt(videoClipsRef.current, ms, duration)
       if (seconds == null) return
       const seeker = getSeeker()
       if (immediate) seeker.seekNow(el, seconds)
       else seeker.seek(el, seconds)
     },
-    [getVideo, videoClipAt, getSeeker]
+    [getVideo, videoClipAt, getSeeker, mutedAtMs]
   )
 
   const stopRaf = React.useCallback(() => {
@@ -171,7 +250,12 @@ export function AnimationPlayerProvider({
           syncVideoTo(next, true)
           void activeVideo.play().catch(() => {})
         } else {
-          activeVideo.muted = activeClip.muted ?? getVideoMutedPreferenceSync()
+          activeVideo.muted = mutedAtMs(
+            next,
+            Number.isFinite(activeVideo.duration)
+              ? activeVideo.duration * 1000
+              : undefined
+          )
         }
       }
       if (next >= total) {
@@ -185,7 +269,7 @@ export function AnimationPlayerProvider({
       rafRef.current = requestAnimationFrame(tick)
     }
     rafRef.current = requestAnimationFrame(tick)
-  }, [playheadMs, stopRaf, getVideo, syncVideoTo, videoClipAt])
+  }, [playheadMs, stopRaf, getVideo, syncVideoTo, videoClipAt, mutedAtMs])
 
   const toggle = React.useCallback(() => {
     if (isPlaying) pause()

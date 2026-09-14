@@ -36,8 +36,11 @@ import { useVideoWaveform } from "@/lib/editor/video-waveform"
 import {
   applyVideoMutedToAll,
   getVideoMutedPreferenceSync,
+  resolveVideoMuted,
   setVideoMutedPreference,
 } from "@/lib/editor/video-mute-preference"
+import { videoClipAtTime } from "@/lib/editor/video-timeline-map"
+import { mutingClipAt } from "@/lib/editor/audio-timeline"
 import { useVideoRegistry } from "@/lib/editor/video-registry"
 
 import type { ClipDragMode, ClipIconKey } from "./timeline-clip"
@@ -1014,7 +1017,7 @@ export function useAnimateTimeline() {
     activeCanvasId ? (s.videos[activeCanvasId] ?? null) : null
   )
   const [videoElementMuted, setVideoElementMuted] = React.useState(() =>
-    getVideoMutedPreferenceSync()
+    getVideoMutedPreferenceSync("animate")
   )
   const [videoHasAudio, setVideoHasAudio] = React.useState(false)
 
@@ -1041,7 +1044,11 @@ export function useAnimateTimeline() {
     }
   }, [videoEl])
 
-  const canMuteVideo = Boolean(videoEl) && videoHasAudio
+  // The waveform decodes the source's audio track directly, so it knows whether
+  // there is audio without playback ever starting — unlike the element probe,
+  // which cannot tell on Chromium until frames have actually decoded.
+  const canMuteVideo =
+    Boolean(videoEl) && (mainWaveform ? !mainWaveform.silent : videoHasAudio)
 
   const selectedVideoClip = React.useMemo(
     () =>
@@ -1051,29 +1058,79 @@ export function useAnimateTimeline() {
         : null,
     [resolvedVideoClips, selectedVideoClipId]
   )
-  const videoMuted = selectedVideoClip?.muted ?? videoElementMuted
+  const clipAtPlayhead = React.useMemo(
+    () =>
+      videoClipAtTime(resolvedVideoClips, playheadMs, videoSourceDurationMs),
+    [resolvedVideoClips, playheadMs, videoSourceDurationMs]
+  )
+
+  // The keyframe clip you have open owns the audio for its own window. With none
+  // open the section under the playhead decides — that is what is audible right
+  // now — and only then the device preference.
+  const selectedKeyframeClip = React.useMemo(
+    () => clips.find((clip) => clip.id === selectedClipId) ?? null,
+    [clips, selectedClipId]
+  )
+  const mutingKeyframeClip = mutingClipAt(clips, playheadMs)
+  const videoMuted = selectedKeyframeClip
+    ? (selectedKeyframeClip.muted ??
+      resolveVideoMuted(clipAtPlayhead, videoElementMuted))
+    : (mutingKeyframeClip?.muted ??
+      resolveVideoMuted(selectedVideoClip ?? clipAtPlayhead, videoElementMuted))
 
   const onToggleVideoMute = React.useCallback(() => {
     const el = videoEl
     if (!el) return
-    if (selectedVideoClip) {
-      const next = !videoMuted
-      updateVideoClip(selectedVideoClip.id, { muted: next })
+    const next = !videoMuted
+    // An open keyframe clip scopes the mute to itself — that is the "mute this
+    // layer" control. Muting with the video selected (or nothing) is universal.
+    if (selectedKeyframeClip) {
+      updateAnimationClip(selectedKeyframeClip.id, { muted: next })
+      return
+    }
+    // Write back to wherever the current value came from. Flipping the device
+    // preference under a section that carries its own mute would leave the
+    // override in force, and the button would look dead.
+    const overrideTarget =
+      selectedVideoClip ??
+      (clipAtPlayhead?.muted !== undefined ? clipAtPlayhead : null)
+    if (overrideTarget) {
+      updateVideoClip(overrideTarget.id, { muted: next })
       // eslint-disable-next-line react-hooks/immutability
       el.muted = next
       setVideoElementMuted(next)
       return
     }
-    const next = !el.muted
     applyVideoMutedToAll(useVideoRegistry.getState().videos, next)
-    setVideoMutedPreference(next)
-  }, [selectedVideoClip, updateVideoClip, videoEl, videoMuted])
+    setVideoMutedPreference(next, "animate")
+  }, [
+    clipAtPlayhead,
+    selectedKeyframeClip,
+    selectedVideoClip,
+    updateAnimationClip,
+    updateVideoClip,
+    videoEl,
+    videoMuted,
+  ])
+
+  // Mute → unmute → inherit, so a clip can also be cleared back to following
+  // the video's own audio without a separate control.
+  const cycleClipMute = React.useCallback(
+    (id: string) => {
+      const clip = clips.find((item) => item.id === id)
+      if (!clip) return
+      updateAnimationClip(id, {
+        muted: clip.muted === undefined ? true : clip.muted ? false : undefined,
+      })
+    },
+    [clips, updateAnimationClip]
+  )
 
   const toggleVideoClipMute = React.useCallback(
     (id: string) => {
       const clip = resolvedVideoClips.find((item) => item.id === id)
       if (!clip) return
-      const muted = !(clip.muted ?? getVideoMutedPreferenceSync())
+      const muted = !resolveVideoMuted(clip)
       updateVideoClip(id, { muted })
       if (id === selectedVideoClipId && videoEl) {
         // eslint-disable-next-line react-hooks/immutability
@@ -1471,6 +1528,7 @@ export function useAnimateTimeline() {
     deleteVideo,
     duplicateVideo,
     toggleVideoClipMute,
+    cycleClipMute,
     copyVideoClip,
   ])
 
@@ -1614,6 +1672,7 @@ export function useAnimateTimeline() {
     deleteVideo,
     duplicateVideo,
     toggleVideoClipMute,
+    cycleClipMute,
     copyVideoClip,
     onVideoPointerDown,
     onVideoPointerMove,

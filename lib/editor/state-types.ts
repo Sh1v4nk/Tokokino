@@ -532,6 +532,12 @@ export type AnimationClip = {
   easingBezier?: ClipEasingBezier
   speed?: number
   /**
+   * Mute the video's audio for this clip's window only, overriding the video
+   * section's own mute. Undefined inherits — this clip has no opinion, so the
+   * section (and then the device preference) decides.
+   */
+  muted?: boolean
+  /**
    * Ease every owned effect back to the pre-clip state once the clip's window
    * ends, instead of holding the pose for the rest of the timeline. Undefined
    * reads as ON — set it to false to keep the pose.

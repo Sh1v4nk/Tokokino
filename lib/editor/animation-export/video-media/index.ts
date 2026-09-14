@@ -42,6 +42,8 @@ import { encodeMp4OrWebm } from "./encode-video"
 import { createFrameRenderer } from "./frame-renderer"
 import { planFrames } from "./frames"
 import { resolveVideoSegments } from "../video-layer"
+import { getVideoMutedPreferenceSync } from "../../video-mute-preference"
+import { applyClipMuteToSegments } from "../../audio-timeline"
 
 export type VideoMediaExportOptions = {
   format: AnimationExportFormat
@@ -119,7 +121,14 @@ async function encodeVideoMedia(
       videoClips,
       canvas.animation ? canvas.animation.durationMs / 1000 : undefined
     )
-    const audioSegments = resolveVideoSegments(videoClips, durationSec * 1000)
+    const audioSegments = applyClipMuteToSegments(
+      resolveVideoSegments(
+        videoClips,
+        durationSec * 1000,
+        getVideoMutedPreferenceSync("animate")
+      ),
+      canvas.animation?.clips ?? []
+    )
 
     const width = even(capture.width)
     const height = even(capture.height)

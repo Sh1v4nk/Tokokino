@@ -32,16 +32,22 @@ export type VideoSegment = {
   sourceStartMs: number
   sourceEndMs: number
   timelineStartMs: number
+  /** Resolved against the device preference — the export emits no audio for it. */
+  muted: boolean
 }
 
 /**
  * Normalize `videoClips` into segments, clamped to the source's real length —
  * the trim model `use-animate-timeline` resolves for the timeline UI. Frames and
  * audio both derive their timing from this, so they cannot drift apart.
+ *
+ * `defaultMuted` is the device preference a section without its own `muted`
+ * falls back to, exactly as the editor resolves it for playback.
  */
 export function resolveVideoSegments(
   clips: readonly VideoTimelineClip[],
-  sourceDurationMs: number
+  sourceDurationMs: number,
+  defaultMuted = false
 ): VideoSegment[] {
   const source = clips.length > 0 ? clips : [DEFAULT_VIDEO_CLIP]
   return source.map((clip) => {
@@ -53,8 +59,14 @@ export function resolveVideoSegments(
         Math.min(clip.endMs ?? sourceDurationMs, sourceDurationMs)
       ),
       timelineStartMs: Math.max(0, clip.timelineStartMs ?? clip.startMs),
+      muted: clip.muted ?? defaultMuted,
     }
   })
+}
+
+/** True when no section contributes audio, so the export needs no audio track. */
+export function segmentsAreSilent(segments: readonly VideoSegment[]): boolean {
+  return segments.every((segment) => segment.muted)
 }
 
 /**
