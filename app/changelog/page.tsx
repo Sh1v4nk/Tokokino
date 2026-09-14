@@ -39,7 +39,7 @@ const releases: Release[] = [
     date: "September 14, 2026",
     title: "Trims and mute that the export actually respects",
     summary:
-      "Trimming a video now shortens the export instead of padding it with a frozen frame, and muting \u2014 a whole clip or one keyframe's window \u2014 carries through to the encoded file.",
+      "Trimming a video now shortens the export instead of padding it with a frozen frame, and muting, whether a whole clip or one keyframe's window, carries through to the encoded file.",
     changes: [
       {
         title: "Trimmed video exports at its trimmed length",
@@ -47,7 +47,7 @@ const releases: Release[] = [
       },
       {
         title: "Trims resize the timeline, and leave your own length alone",
-        text: "A trim pulls the timeline in to fit the footage. Once you have set the length by hand with the end handle it stays put \u2014 a trim can still shorten it, but clicking a clip, toggling its mute, or dropping it where it already sat no longer stretches it back out.",
+        text: "A trim pulls the timeline in to fit the footage. Once you have set the length by hand with the end handle it stays put. A trim can still shorten it, but clicking a clip, toggling its mute, or dropping it where it already sat no longer stretches it back out.",
       },
       {
         title: "Export honours mute",
@@ -55,7 +55,7 @@ const releases: Release[] = [
       },
       {
         title: "Mute per animation clip",
-        text: "Select a keyframe clip and mute it to silence just its window \u2014 mute one clip, leave the next one playing. The clip shows a speaker icon for the state it imposes, and the waveform dims only across that span. Muting with the video selected is still the universal one.",
+        text: "Select a keyframe clip and mute it to silence just its window, so you can mute one clip and leave the next one playing. The clip shows a speaker icon for the state it imposes, and the waveform dims only across that span. Muting with the video selected is still the universal one.",
       },
       {
         title: "Animate and Present keep separate mute",
@@ -63,7 +63,7 @@ const releases: Release[] = [
       },
       {
         title: "Mute survives a reload, and stops waiting for playback",
-        text: "A muted clip came back unmuted after a refresh, and the mute button sat disabled until you pressed play because Chrome cannot count audio bytes before decoding starts. The state is now restored at rest, and the button reads the track that the waveform already decoded.",
+        text: "A muted clip came back unmuted after a refresh, and the mute button sat disabled until you pressed play, because Chrome cannot count audio bytes before decoding starts. The state is now restored at rest, and the button reads the track that the waveform already decoded.",
       },
     ],
   },

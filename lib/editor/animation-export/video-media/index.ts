@@ -125,9 +125,14 @@ async function encodeVideoMedia(
       resolveVideoSegments(
         videoClips,
         durationSec * 1000,
-        getVideoMutedPreferenceSync("animate")
+        // This exporter also serves Present mode, whose mute is a separate
+        // preference. Reading Animate's would export audio for a video the user
+        // can see is muted, and vice versa.
+        getVideoMutedPreferenceSync(state.isAnimateMode ? "animate" : "present")
       ),
-      canvas.animation?.clips ?? []
+      // Keyframe mute belongs to the Animate timeline, and playback only honours
+      // it there. Present mode has to agree, or the file disagrees with preview.
+      state.isAnimateMode ? (canvas.animation?.clips ?? []) : []
     )
 
     const width = even(capture.width)

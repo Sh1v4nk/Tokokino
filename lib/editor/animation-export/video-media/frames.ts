@@ -17,7 +17,18 @@ import { drawWatermark } from "../watermark"
 export type FramePlan = {
   frameCount: number
   frameDurationSec: number
+  /**
+   * Presentation time of output frame `i`, on a constant 1/fps cadence. The
+   * encoder stamps frames with this, and a muxer needs timestamps that rise by
+   * exactly one frame each time. It is NOT where to seek the source.
+   */
   timeForFrame: (i: number) => number
+  /**
+   * Source position output frame `i` shows. Trims, reordered sections and gaps
+   * move this around independently of the output clock, so it must never be used
+   * as a timestamp.
+   */
+  sourceTimeForFrame: (i: number) => number
 }
 
 /** Where the video track ends on the timeline, in seconds. */
@@ -50,10 +61,14 @@ function trackEndSec(segments: readonly VideoSegment[]): number {
  * non-finite duration so the loop can't run away. Cadence is a constant 1/fps →
  * smooth, correct speed.
  *
- * `timeForFrame` maps output position → source position through the segments, so
- * a trim that starts 10s in starts the export there too. Past the track's end, or
- * in a gap, it holds the nearest edge — the frozen frame the Animate player shows
- * in the same spot.
+ * `sourceTimeForFrame` maps output position to source position through the
+ * segments, so a trim that starts 10s in starts the export there too. Past the
+ * track's end, or in a gap, it holds the nearest edge: the frozen frame the
+ * Animate player shows in the same spot.
+ *
+ * The output clock stays separate. A reordered split plays source positions that
+ * run backwards, and a gap repeats one, so stamping frames with source time
+ * would hand the muxer timestamps it rejects.
  */
 export function planFrames(
   sourceDurationSec: number,
@@ -77,7 +92,8 @@ export function planFrames(
   return {
     frameCount,
     frameDurationSec: 1 / fps,
-    timeForFrame: (i) => {
+    timeForFrame: (i) => i / fps,
+    sourceTimeForFrame: (i) => {
       const timelineMs = (i * 1000) / fps
       const sourceMs = resolveVideoSourceTimeMs(
         clips,

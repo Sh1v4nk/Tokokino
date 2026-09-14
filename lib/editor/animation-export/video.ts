@@ -149,6 +149,8 @@ async function tryEncodeInWorker(
         resolveVideoSegments(
           canvas.videoClips ?? [],
           videoLayer.sourceDurationMs,
+          // Keyframes only exist on the Animate timeline, so this export is
+          // always Animate's.
           getVideoMutedPreferenceSync("animate")
         ),
         canvas.animation?.clips ?? []
@@ -284,6 +286,8 @@ async function encodeWithMediabunnyOnMainThread(
         resolveVideoSegments(
           canvas.videoClips ?? [],
           videoLayer.sourceDurationMs,
+          // Keyframes only exist on the Animate timeline, so this export is
+          // always Animate's.
           getVideoMutedPreferenceSync("animate")
         ),
         canvas.animation?.clips ?? []

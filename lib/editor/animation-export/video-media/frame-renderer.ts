@@ -1098,7 +1098,7 @@ async function createCompositeRenderer(
   const mediaBuffer = document.createElement("canvas")
 
   return async (i: number) => {
-    const t = plan.timeForFrame(i)
+    const t = plan.sourceTimeForFrame(i)
     const frame = await decoded.getFrameAt(t)
     sctx.clearRect(0, 0, scratch.width, scratch.height)
     sctx.drawImage(templateCopy, 0, 0)
@@ -1211,7 +1211,7 @@ function createRasterRenderer(
   const minNonBlack = 25
 
   return async (i: number) => {
-    const t = plan.timeForFrame(i)
+    const t = plan.sourceTimeForFrame(i)
     let drewDecoded = false
     if (decoded && paintOverlay) {
       const frame = await decoded.getFrameAt(t)
