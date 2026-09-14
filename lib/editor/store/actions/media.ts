@@ -1,8 +1,57 @@
-import { MAX_DURATION_MS, resolveRippleDrop } from "../../animation-timeline"
+import {
+  keyframeTrackEndMs,
+  MAX_DURATION_MS,
+  MIN_DURATION_MS,
+  resolveRippleDrop,
+  videoTrackEndMs,
+} from "../../animation-timeline"
+import type { CanvasState, VideoTimelineClip } from "../../state-types"
+import { getCanvasAnimation } from "../animation-helpers"
 import { makeId } from "../canvas-helpers"
 import { computeNextLayerZ } from "../layer-stack"
 import type { CommitContext } from "../commit-context"
 import type { EditorActions } from "../types"
+
+const DEFAULT_VIDEO_CLIPS: VideoTimelineClip[] = [
+  { id: "video-main", timelineStartMs: 0, startMs: 0, endMs: null },
+]
+
+/**
+ * Fit the animation timeline to the video track after a trim. `durationMs` is
+ * stamped with the full source length when the video is imported, and both the
+ * player and the export read it rather than the clips — so without this a
+ * two-second trim still renders the whole original, the tail holding the clip's
+ * last painted frame.
+ *
+ * The timeline's length is still the user's to set with the end handle, so this
+ * only reacts when the track's end actually moves (a mute, a selection, a
+ * dropped-where-it-was drag must not disturb it), and once the duration no
+ * longer matches the track it has been set by hand: a trim may then pull it in,
+ * never push it back out. Returns null when nothing should change, including for
+ * an open-ended section whose true length the store cannot know.
+ */
+const fitDurationToContent = (
+  canvas: CanvasState,
+  videoClips: readonly VideoTimelineClip[]
+) => {
+  const nextEnd = videoTrackEndMs(videoClips)
+  if (nextEnd === null) return null
+  const previousEnd = videoTrackEndMs(canvas.videoClips ?? DEFAULT_VIDEO_CLIPS)
+  if (previousEnd === nextEnd) return null
+  const animation = getCanvasAnimation(canvas)
+  const follows = previousEnd === null || previousEnd === animation.durationMs
+  const durationMs = Math.min(
+    MAX_DURATION_MS,
+    Math.max(
+      MIN_DURATION_MS,
+      follows ? nextEnd : Math.min(animation.durationMs, nextEnd),
+      keyframeTrackEndMs(animation.clips)
+    )
+  )
+  return durationMs === animation.durationMs
+    ? null
+    : { animation: { ...animation, durationMs } }
+}
 
 export const createMediaActions = ({
   commitCanvas,
@@ -87,14 +136,11 @@ export const createMediaActions = ({
       commitCanvas(
         canvasId,
         (canvas) => {
-          const clips = canvas.videoClips ?? [
-            { id: "video-main", timelineStartMs: 0, startMs: 0, endMs: null },
-          ]
-          return {
-            videoClips: clips.map((clip) =>
-              clip.id === id ? { ...clip, ...patch } : clip
-            ),
-          }
+          const clips = canvas.videoClips ?? DEFAULT_VIDEO_CLIPS
+          const videoClips = clips.map((clip) =>
+            clip.id === id ? { ...clip, ...patch } : clip
+          )
+          return { videoClips, ...fitDurationToContent(canvas, videoClips) }
         },
         "video-trim"
       ),
@@ -103,9 +149,7 @@ export const createMediaActions = ({
       commitCanvas(
         canvasId,
         (canvas) => {
-          const clips = canvas.videoClips ?? [
-            { id: "video-main", timelineStartMs: 0, startMs: 0, endMs: null },
-          ]
+          const clips = canvas.videoClips ?? DEFAULT_VIDEO_CLIPS
           const clip = clips.find((item) => item.id === id)
           if (
             !clip ||
@@ -115,23 +159,22 @@ export const createMediaActions = ({
             return {}
           }
           newId = makeId()
-          return {
-            videoClips: clips.flatMap((item) =>
-              item.id === id
-                ? [
-                    { ...item, endMs: atMs },
-                    {
-                      ...item,
-                      id: newId!,
-                      timelineStartMs:
-                        (item.timelineStartMs ?? item.startMs) +
-                        (atMs - item.startMs),
-                      startMs: atMs,
-                    },
-                  ]
-                : [item]
-            ),
-          }
+          const videoClips = clips.flatMap((item) =>
+            item.id === id
+              ? [
+                  { ...item, endMs: atMs },
+                  {
+                    ...item,
+                    id: newId!,
+                    timelineStartMs:
+                      (item.timelineStartMs ?? item.startMs) +
+                      (atMs - item.startMs),
+                    startMs: atMs,
+                  },
+                ]
+              : [item]
+          )
+          return { videoClips, ...fitDurationToContent(canvas, videoClips) }
         },
         "video-split"
       )
@@ -142,9 +185,7 @@ export const createMediaActions = ({
       commitCanvas(
         canvasId,
         (canvas) => {
-          const clips = canvas.videoClips ?? [
-            { id: "video-main", timelineStartMs: 0, startMs: 0, endMs: null },
-          ]
+          const clips = canvas.videoClips ?? DEFAULT_VIDEO_CLIPS
           const source = clips.find((clip) => clip.id === id)
           if (!source || durationMs <= 0) return {}
           const sourceStart = source.timelineStartMs ?? source.startMs
@@ -162,26 +203,25 @@ export const createMediaActions = ({
             MAX_DURATION_MS
           )
           newId = makeId()
-          return {
-            videoClips: [
-              ...clips.map((clip) => {
-                const timelineStartMs = clip.timelineStartMs ?? clip.startMs
-                const positioned =
-                  timelineStartMs < shiftAfterMs
-                    ? clip
-                    : { ...clip, timelineStartMs: timelineStartMs + shiftMs }
-                return clip.id === id && clip.endMs === null
-                  ? { ...positioned, endMs: sourceEndMs }
-                  : positioned
-              }),
-              {
-                ...source,
-                id: newId,
-                endMs: sourceEndMs,
-                timelineStartMs: startMs,
-              },
-            ],
-          }
+          const videoClips = [
+            ...clips.map((clip) => {
+              const timelineStartMs = clip.timelineStartMs ?? clip.startMs
+              const positioned =
+                timelineStartMs < shiftAfterMs
+                  ? clip
+                  : { ...clip, timelineStartMs: timelineStartMs + shiftMs }
+              return clip.id === id && clip.endMs === null
+                ? { ...positioned, endMs: sourceEndMs }
+                : positioned
+            }),
+            {
+              ...source,
+              id: newId,
+              endMs: sourceEndMs,
+              timelineStartMs: startMs,
+            },
+          ]
+          return { videoClips, ...fitDurationToContent(canvas, videoClips) }
         },
         "video-duplicate"
       )
@@ -191,12 +231,10 @@ export const createMediaActions = ({
       commitCanvas(
         canvasId,
         (canvas) => {
-          const clips = canvas.videoClips ?? [
-            { id: "video-main", timelineStartMs: 0, startMs: 0, endMs: null },
-          ]
+          const clips = canvas.videoClips ?? DEFAULT_VIDEO_CLIPS
           const kept = clips.filter((clip) => !ids.includes(clip.id))
           return kept.length > 0
-            ? { videoClips: kept }
+            ? { videoClips: kept, ...fitDurationToContent(canvas, kept) }
             : {
                 screenshot: null,
                 originalScreenshot: null,

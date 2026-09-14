@@ -161,6 +161,9 @@ export function useAnimateTimeline() {
     if (!mainIsVideo || !screenshot || !videoDurationMs) return
     if (appliedVideoDurationRef.current === screenshot) return
     if (durationMs !== 5000) return
+    // A trimmed track already owns the duration; re-stamping the source length
+    // here would undo the trim whenever this ref resets (remount, mode switch).
+    if (videoClips?.length) return
     appliedVideoDurationRef.current = screenshot
     setAnimationDuration(
       Math.max(
@@ -168,7 +171,14 @@ export function useAnimateTimeline() {
         Math.min(MAX_DURATION_MS, Math.round(videoDurationMs / 100) * 100)
       )
     )
-  }, [mainIsVideo, screenshot, mainFilmstrip, durationMs, setAnimationDuration])
+  }, [
+    mainIsVideo,
+    screenshot,
+    mainFilmstrip,
+    durationMs,
+    videoClips,
+    setAnimationDuration,
+  ])
 
   const selectedClipId = useEditorStore((s) => s.selectedAnimationClipId)
   const selectedClipIds = useEditorStore(
@@ -670,7 +680,10 @@ export function useAnimateTimeline() {
       const drag = videoDragRef.current
       if (!drag) return
       event.currentTarget.releasePointerCapture?.(event.pointerId)
-      if (drag.mode === "move") {
+      // A click that never moved has nothing to drop: committing the ripple
+      // anyway rewrites every section to the position it already has, for a
+      // history entry the user didn't ask for.
+      if (drag.mode === "move" && drag.moved) {
         const dropped = Math.max(
           0,
           clipMsFromClientX(event.clientX) - drag.grabOffsetMs
