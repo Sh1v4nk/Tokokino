@@ -26,9 +26,10 @@ const DEFAULT_VIDEO_CLIPS: VideoTimelineClip[] = [
  * The timeline's length is still the user's to set with the end handle, so this
  * only reacts when the track's end actually moves (a mute, a selection, a
  * dropped-where-it-was drag must not disturb it), and once the duration no
- * longer matches the track it has been set by hand: a trim may then pull it in,
- * never push it back out. Returns null when nothing should change, including for
- * an open-ended section whose true length the store cannot know.
+ * longer matches the track it has been set by hand: a shrinking track may then
+ * pull it in, while a growing one leaves it exactly where it was. Returns null
+ * when nothing should change, including for an open-ended section whose true
+ * length the store cannot know.
  */
 const fitDurationToContent = (
   canvas: CanvasState,
@@ -40,11 +41,15 @@ const fitDurationToContent = (
   if (previousEnd === nextEnd) return null
   const animation = getCanvasAnimation(canvas)
   const follows = previousEnd === null || previousEnd === animation.durationMs
+  const grew = previousEnd !== null && nextEnd > previousEnd
+  const handSet = grew
+    ? animation.durationMs
+    : Math.min(animation.durationMs, nextEnd)
   const durationMs = Math.min(
     MAX_DURATION_MS,
     Math.max(
       MIN_DURATION_MS,
-      follows ? nextEnd : Math.min(animation.durationMs, nextEnd),
+      follows ? nextEnd : handSet,
       keyframeTrackEndMs(animation.clips)
     )
   )

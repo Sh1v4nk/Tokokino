@@ -105,6 +105,22 @@ describe("resolveVideoSegments", () => {
     ])
   })
 
+  it("drops a section that clamps to no playable source span", () => {
+    const clips: VideoTimelineClip[] = [
+      { id: "a", timelineStartMs: 0, startMs: 0, endMs: 2_000 },
+      { id: "past-end", timelineStartMs: 20_000, startMs: 30_000, endMs: null },
+    ]
+
+    expect(resolveVideoSegments(clips, DURATION)).toEqual([
+      {
+        sourceStartMs: 0,
+        sourceEndMs: 2_000,
+        timelineStartMs: 0,
+        muted: false,
+      },
+    ])
+  })
+
   it("keeps split timeline clips independent after normalization", () => {
     const clips: VideoTimelineClip[] = [
       { id: "a", timelineStartMs: 0, startMs: 7_000, endMs: 12_000 },

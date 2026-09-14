@@ -43,6 +43,10 @@ export type VideoSegment = {
  *
  * `defaultMuted` is the device preference a section without its own `muted`
  * falls back to, exactly as the editor resolves it for playback.
+ *
+ * Sections that clamp to nothing are dropped: a span starting past the source's
+ * end plays no frames, but its `timelineStartMs` would still count towards the
+ * track's end and stretch an export past its last real frame.
  */
 export function resolveVideoSegments(
   clips: readonly VideoTimelineClip[],
@@ -50,18 +54,23 @@ export function resolveVideoSegments(
   defaultMuted = false
 ): VideoSegment[] {
   const source = clips.length > 0 ? clips : [DEFAULT_VIDEO_CLIP]
-  return source.map((clip) => {
-    const sourceStartMs = Math.max(0, Math.min(clip.startMs, sourceDurationMs))
-    return {
-      sourceStartMs,
-      sourceEndMs: Math.max(
+  return source
+    .map((clip) => {
+      const sourceStartMs = Math.max(
+        0,
+        Math.min(clip.startMs, sourceDurationMs)
+      )
+      return {
         sourceStartMs,
-        Math.min(clip.endMs ?? sourceDurationMs, sourceDurationMs)
-      ),
-      timelineStartMs: Math.max(0, clip.timelineStartMs ?? clip.startMs),
-      muted: clip.muted ?? defaultMuted,
-    }
-  })
+        sourceEndMs: Math.max(
+          sourceStartMs,
+          Math.min(clip.endMs ?? sourceDurationMs, sourceDurationMs)
+        ),
+        timelineStartMs: Math.max(0, clip.timelineStartMs ?? clip.startMs),
+        muted: clip.muted ?? defaultMuted,
+      }
+    })
+    .filter((segment) => segment.sourceEndMs > segment.sourceStartMs)
 }
 
 /** True when no section contributes audio, so the export needs no audio track. */

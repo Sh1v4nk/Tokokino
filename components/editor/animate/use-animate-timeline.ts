@@ -1088,6 +1088,12 @@ export function useAnimateTimeline() {
       updateAnimationClip(selectedKeyframeClip.id, { muted: next })
       return
     }
+    // With no clip open, a keyframe clip claiming the playhead is what the
+    // button is showing, so it is what the button has to write.
+    if (mutingKeyframeClip) {
+      updateAnimationClip(mutingKeyframeClip.id, { muted: next })
+      return
+    }
     // Write back to wherever the current value came from. Flipping the device
     // preference under a section that carries its own mute would leave the
     // override in force, and the button would look dead.
@@ -1105,6 +1111,7 @@ export function useAnimateTimeline() {
     setVideoMutedPreference(next, "animate")
   }, [
     clipAtPlayhead,
+    mutingKeyframeClip,
     selectedKeyframeClip,
     selectedVideoClip,
     updateAnimationClip,

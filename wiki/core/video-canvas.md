@@ -198,13 +198,13 @@ The refit is deliberately conservative, because the end handle is the user's:
   disturb a hand-set duration.
 - While `durationMs` still equals the track's end it is **following** it, and
   moves in both directions with it.
-- Once it differs, it was set by hand: a trim may pull it **in**, never push it
-  back out.
+- Once it differs, it was set by hand: a trim that shortens the track may pull it
+  **in**, while extending the track never pushes it back out.
 - A section with `endMs: null` is skipped entirely — the store has no idea how
   long the media is, and such a track already ends at the source duration that
   `durationMs` holds.
 
-**Audio mute is two layers.** `lib/editor/audio-timeline.ts` resolves them, and
+**Audio mute is three layers.** `lib/editor/audio-timeline.ts` resolves them, and
 the narrower one wins:
 
 | Layer | Field | Scope |

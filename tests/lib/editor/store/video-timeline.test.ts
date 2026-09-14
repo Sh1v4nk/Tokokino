@@ -177,6 +177,15 @@ describe("video timeline store actions", () => {
       expect(durationMs()).toBe(1_000)
     })
 
+    it("leaves a hand-set duration alone when the track grows under it", () => {
+      initializeVideoClip()
+      store.getState().setAnimationDuration(12_000)
+
+      store.getState().updateVideoClip("video-main", { endMs: 9_000 })
+
+      expect(durationMs()).toBe(12_000)
+    })
+
     it("measures the track end, not the source range", () => {
       initializeVideoClip()
       const secondId = store.getState().splitVideoClip("video-main", 2_000)
