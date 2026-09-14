@@ -13,7 +13,7 @@ import {
 } from "@/components/kibo-ui/code-block/server"
 import { cn } from "@/lib/utils"
 
-const THEMES = { light: "github-light", dark: "github-dark-default" } as const
+const THEMES = { light: "gruvbox-light-hard", dark: "vesper" } as const
 
 const THIN_SCROLLBAR = {
   "--scrollbar-size": "5px",
