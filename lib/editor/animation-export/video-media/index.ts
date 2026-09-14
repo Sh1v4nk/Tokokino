@@ -41,6 +41,7 @@ import { encodeGif } from "./encode-gif"
 import { encodeMp4OrWebm } from "./encode-video"
 import { createFrameRenderer } from "./frame-renderer"
 import { planFrames } from "./frames"
+import { resolveVideoSegments } from "../video-layer"
 
 export type VideoMediaExportOptions = {
   format: AnimationExportFormat
@@ -108,7 +109,17 @@ async function encodeVideoMedia(
     if (!Number.isFinite(durationSec) || durationSec <= 0) {
       throw new Error("Video has no readable duration")
     }
-    const plan = planFrames(durationSec, fps)
+    const videoClips = canvas.videoClips ?? []
+    // The timeline's own length wins when the canvas has one — the end handle is
+    // how you shorten (or extend past) the footage. A video canvas that never
+    // opened Animate has no timeline, and falls back to the video track.
+    const plan = planFrames(
+      durationSec,
+      fps,
+      videoClips,
+      canvas.animation ? canvas.animation.durationMs / 1000 : undefined
+    )
+    const audioSegments = resolveVideoSegments(videoClips, durationSec * 1000)
 
     const width = even(capture.width)
     const height = even(capture.height)
@@ -181,6 +192,7 @@ async function encodeVideoMedia(
               // duration — keeps audio aligned with the styled video track.
               exportAudioDurationSec(plan),
               canvas.screenshot,
+              audioSegments,
               signal
             )
 

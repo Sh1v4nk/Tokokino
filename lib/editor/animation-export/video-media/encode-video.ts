@@ -28,8 +28,10 @@ import {
   createUiYielder,
   throwIfAborted,
 } from "../utils"
+import { prepareAnimationAudio } from "../animation-audio"
+import type { VideoSegment } from "../video-layer"
 import { createVideoMuxSession } from "../workers/video-muxer-client"
-import { loadAudioSourceBlob, prepareSourceAudio } from "./audio"
+import { loadAudioSourceBlob } from "./audio"
 import { blitFrame, type FramePlan, type RenderFrame } from "./frames"
 
 type Progress = ReturnType<typeof createProgressReporter>
@@ -78,6 +80,7 @@ async function tryEncodeInWorker(
   progress: Progress,
   durationSec: number,
   audioBlob: Blob | null,
+  segments: readonly VideoSegment[],
   signal?: AbortSignal
 ): Promise<Blob | null> {
   // Audio is decoded and re-encoded inside the worker during init, so report the
@@ -91,10 +94,11 @@ async function tryEncodeInWorker(
       height: encodeCanvas.height,
       fps: Math.round(1 / plan.frameDurationSec),
       keyFrameIntervalSec: ENCODE_KEY_FRAME_INTERVAL_SEC,
-      // This export plays the clip start to finish, so source and export time
-      // already agree — no timeline re-timing, hence no segments.
+      // Trim segments re-time the audio the same way `planFrames` re-times the
+      // video. An untrimmed track resolves to one whole-source segment, which
+      // `prepareAnimationAudio` short-circuits back to a straight remux.
       audio: audioBlob
-        ? { blob: audioBlob, durationSec, segments: null }
+        ? { blob: audioBlob, durationSec, segments: [...segments] }
         : null,
     },
     signal
@@ -136,6 +140,7 @@ export async function encodeMp4OrWebm(
   progress: Progress,
   durationSec: number,
   sourceSrc: string,
+  segments: readonly VideoSegment[],
   signal?: AbortSignal
 ): Promise<Blob> {
   if (typeof VideoEncoder === "undefined") {
@@ -158,6 +163,7 @@ export async function encodeMp4OrWebm(
       progress,
       durationSec,
       audioBlob,
+      segments,
       signal
     )
     if (encoded) return encoded
@@ -183,13 +189,14 @@ export async function encodeMp4OrWebm(
   const outputFormat =
     format === "mp4" ? new Mp4OutputFormat() : new WebMOutputFormat()
   const sourceAudio = audioBlob
-    ? await prepareSourceAudio(
-        audioBlob,
+    ? await prepareAnimationAudio({
+        source: audioBlob,
         format,
         outputFormat,
-        durationSec,
-        signal
-      )
+        segments,
+        exportDurationSec: durationSec,
+        signal,
+      })
     : null
   const target = new BufferTarget()
   const output = new Output({
