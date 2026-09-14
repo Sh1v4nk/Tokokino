@@ -182,6 +182,56 @@ Used by live Animate seek **and** crop dialog so poster frame matches canvas.
 
 Default when `videoClips` empty: whole source from 0.
 
+**Duration coupling (one-way).** The two timelines are independent in content but
+not in length. Every trim action (`updateVideoClip`, `splitVideoClip`,
+`duplicateVideoClip`, `removeVideoClips`) refits `animation.durationMs` against
+the end of the video track, floored at the last style keyframe's end and at
+`MIN_DURATION_MS`. Without it a trim leaves `durationMs` at the full source length
+that import stamped, and every consumer of the timeline length — the player, and
+both exporters — renders the whole original, the tail holding the clip's last
+painted frame.
+
+The refit is deliberately conservative, because the end handle is the user's:
+
+- The track's end must actually **move**. A mute, a selection, a section dropped
+  where it already sat commits a write but changes no length, and must not
+  disturb a hand-set duration.
+- While `durationMs` still equals the track's end it is **following** it, and
+  moves in both directions with it.
+- Once it differs, it was set by hand: a trim may pull it **in**, never push it
+  back out.
+- A section with `endMs: null` is skipped entirely — the store has no idea how
+  long the media is, and such a track already ends at the source duration that
+  `durationMs` holds.
+
+**Audio mute is two layers.** `lib/editor/audio-timeline.ts` resolves them, and
+the narrower one wins:
+
+| Layer | Field | Scope |
+|---|---|---|
+| Keyframe clip | `AnimationClip.muted` | That clip's window only; `undefined` inherits |
+| Video section | `VideoTimelineClip.muted` | Universal, per section |
+| Device | `tokokino:video-muted[:animate]` | Fallback, per mode |
+
+Animate and Present keep **separate** device preferences — one shared key meant
+muting on the timeline silenced normal playback. Keyframe mute applies only while
+Animate drives the transport.
+
+`mutedAt()` answers point queries (the player, the toolbar icon).
+`applyClipMuteToSegments()` re-cuts export audio segments so each piece has a
+single mute state, splitting at clip edges without moving any source-to-timeline
+mapping; `segmentsAreSilent()` then lets a fully muted export skip reading the
+source audio entirely and ship with no audio track.
+
+**Export length.** Both encoders take their frame count from the timeline, never
+from the source clip: `exportAnimation` from `durationMs` directly, and
+`planFrames` (video-media) from `canvas.animation.durationMs`, falling back to the
+track's end for a video canvas that has never opened Animate. `planFrames` also
+maps each output frame back through the segments to a *source* time, so a trim
+that starts 10s in starts the export there; past the track's end it holds the
+nearest edge. The same segments re-time the audio (`prepareAnimationAudio`), so
+picture and sound stay aligned under a trim.
+
 UI: `timeline-video-clip.tsx` + animate timeline interactions. Filmstrip thumbs: `useVideoFilmstrip(src)` in `video-filmstrip.ts`.
 
 ---
