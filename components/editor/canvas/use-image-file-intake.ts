@@ -39,9 +39,12 @@ export function useImageFileIntake(
     /** Fired around async media preparation (GIF→video transcode) so the caller
      * can show a skeleton/placeholder in the canvas while it runs. */
     onPreparingChange?: (preparing: boolean) => void
+    /** Whether this instance listens for window paste events. Defaults to true. */
+    enabled?: boolean
   }
 ) {
   const allowVideo = options?.allowVideo ?? true
+  const enabled = options?.enabled ?? true
   const onPreparingChange = options?.onPreparingChange
   const fileInputRef = React.useRef<HTMLInputElement>(null)
   const [isDragOver, setIsDragOver] = React.useState(false)
@@ -151,6 +154,7 @@ export function useImageFileIntake(
   )
 
   React.useEffect(() => {
+    if (!enabled) return
     const onPaste = (e: ClipboardEvent) => {
       const items = e.clipboardData?.items
       if (!items) return
@@ -168,7 +172,7 @@ export function useImageFileIntake(
 
     window.addEventListener("paste", onPaste)
     return () => window.removeEventListener("paste", onPaste)
-  }, [readFile])
+  }, [enabled, readFile])
 
   const fileInputProps = {
     ref: fileInputRef,

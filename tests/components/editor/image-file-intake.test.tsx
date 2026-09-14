@@ -77,3 +77,62 @@ describe("GIF intake", () => {
     )
   })
 })
+
+const png = () =>
+  new File([new Uint8Array([137, 80, 78, 71])], "shot.png", {
+    type: "image/png",
+  })
+
+/** jsdom has no ClipboardEvent, so hand-roll the one shape the hook reads. */
+function pasteImage() {
+  const file = png()
+  const event = new Event("paste", { cancelable: true })
+  Object.defineProperty(event, "clipboardData", {
+    value: { items: [{ type: file.type, getAsFile: () => file }] },
+  })
+  window.dispatchEvent(event)
+  return event
+}
+
+/** Drains pending FileReaders so "not called" means never, not "not yet". */
+const settle = () => act(() => new Promise((r) => setTimeout(r, 10)))
+
+describe("paste ownership", () => {
+  it("is handled only by the hooks that are enabled", async () => {
+    const onEnabled = vi.fn()
+    const onDisabled = vi.fn()
+    renderHook(() => useImageFileIntake(onEnabled))
+    renderHook(() => useImageFileIntake(onDisabled, { enabled: false }))
+
+    const event = pasteImage()
+
+    await waitFor(() => expect(onEnabled).toHaveBeenCalledTimes(1))
+    await settle()
+    expect(onEnabled).toHaveBeenCalledWith(
+      expect.stringMatching(/^data:image\/png/)
+    )
+    expect(event.defaultPrevented).toBe(true)
+    expect(onDisabled).not.toHaveBeenCalled()
+  })
+
+  it("stops listening once enabled flips to false", async () => {
+    const onImage = vi.fn()
+    const { rerender } = renderHook(
+      ({ enabled }: { enabled: boolean }) =>
+        useImageFileIntake(onImage, { enabled }),
+      { initialProps: { enabled: true } }
+    )
+
+    rerender({ enabled: false })
+    const ignored = pasteImage()
+    expect(ignored.defaultPrevented).toBe(false)
+
+    // Re-enabling is the control: exactly one paste must land.
+    rerender({ enabled: true })
+    pasteImage()
+
+    await waitFor(() => expect(onImage).toHaveBeenCalledTimes(1))
+    await settle()
+    expect(onImage).toHaveBeenCalledTimes(1)
+  })
+})
