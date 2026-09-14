@@ -34,6 +34,40 @@ type Release = {
 
 const releases: Release[] = [
   {
+    id: "v2-4-0",
+    version: "2.4.0",
+    date: "September 14, 2026",
+    title: "Trims and mute that the export actually respects",
+    summary:
+      "Trimming a video now shortens the export instead of padding it with a frozen frame, and muting, whether a whole clip or one keyframe's window, carries through to the encoded file.",
+    changes: [
+      {
+        title: "Trimmed video exports at its trimmed length",
+        text: "Cutting a 34-second clip down to two seconds used to export all 34 anyway, the tail holding the last frame. Both encoders now take their length from the timeline, so the frame count matches what you trimmed, and the timeline's end handle shortens the export too.",
+      },
+      {
+        title: "Trims resize the timeline, and leave your own length alone",
+        text: "A trim pulls the timeline in to fit the footage. Once you have set the length by hand with the end handle it stays put. A trim can still shorten it, but clicking a clip, toggling its mute, or dropping it where it already sat no longer stretches it back out.",
+      },
+      {
+        title: "Export honours mute",
+        text: "A muted video exported with full audio. Mute now reaches the encoder: a silent clip ships with no audio track at all, and a section muted on its own goes quiet for exactly its span while the rest plays.",
+      },
+      {
+        title: "Mute per animation clip",
+        text: "Select a keyframe clip and mute it to silence just its window, so you can mute one clip and leave the next one playing. The clip shows a speaker icon for the state it imposes, and the waveform dims only across that span. Muting with the video selected is still the universal one.",
+      },
+      {
+        title: "Animate and Present keep separate mute",
+        text: "Muting while you edit on the timeline no longer silences normal playback, or the other way round. Each mode remembers its own preference.",
+      },
+      {
+        title: "Mute survives a reload, and stops waiting for playback",
+        text: "A muted clip came back unmuted after a refresh, and the mute button sat disabled until you pressed play, because Chrome cannot count audio bytes before decoding starts. The state is now restored at rest, and the button reads the track that the waveform already decoded.",
+      },
+    ],
+  },
+  {
     id: "v2-3-0",
     version: "2.3.0",
     date: "September 4, 2026",

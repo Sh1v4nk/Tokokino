@@ -178,7 +178,7 @@ export function VideoIdlePoster({
           const video = findSiblingVideo(rootRef.current)
           if (!video) return
           // Honor the saved mute preference (default muted for autoplay safety).
-          video.muted = getVideoMutedPreferenceSync()
+          video.muted = getVideoMutedPreferenceSync("present")
           void video.play().catch(() => undefined)
         }}
         onPointerDown={(e) => e.stopPropagation()}

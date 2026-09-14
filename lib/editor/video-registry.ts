@@ -22,7 +22,7 @@ export const useVideoRegistry = create<VideoRegistryState>((set) => ({
       if (el) {
         // JSX starts muted for autoplay safety; honor the saved preference once
         // the element is live.
-        el.muted = getVideoMutedPreferenceSync()
+        el.muted = getVideoMutedPreferenceSync("present")
         videos[canvasId] = el
       } else {
         delete videos[canvasId]

@@ -26,7 +26,9 @@ import { prepareAnimationAudio } from "./animation-audio"
 import { captureStableFrame } from "./capture"
 import { safeDrawImage } from "./draw-utils"
 import type { CaptureCtx } from "./types"
-import { resolveVideoSegments } from "./video-layer"
+import { resolveVideoSegments, segmentsAreSilent } from "./video-layer"
+import { getVideoMutedPreferenceSync } from "../video-mute-preference"
+import { applyClipMuteToSegments } from "../audio-timeline"
 import { loadAudioSourceBlob } from "./video-media/audio"
 import {
   AnimationExportAbortedError,
@@ -142,8 +144,25 @@ async function tryEncodeInWorker(
   const { canvas, frameCount, fps, progress, signal, videoLayer } = ctx
 
   const screenshot = canvas.screenshot
+  const segments = videoLayer
+    ? applyClipMuteToSegments(
+        resolveVideoSegments(
+          canvas.videoClips ?? [],
+          videoLayer.sourceDurationMs,
+          // Keyframes only exist on the Animate timeline, so this export is
+          // always Animate's.
+          getVideoMutedPreferenceSync("animate")
+        ),
+        canvas.animation?.clips ?? []
+      )
+    : []
+  // Reading the source's bytes is the expensive half; a fully muted track never
+  // needs them.
   const audioBlob =
-    videoLayer && screenshot && isVideoSrc(screenshot)
+    videoLayer &&
+    screenshot &&
+    isVideoSrc(screenshot) &&
+    !segmentsAreSilent(segments)
       ? await loadAudioSourceBlob(screenshot, signal)
       : null
 
@@ -162,10 +181,7 @@ async function tryEncodeInWorker(
           ? {
               blob: audioBlob,
               durationSec: frameCount / fps,
-              segments: resolveVideoSegments(
-                canvas.videoClips ?? [],
-                videoLayer.sourceDurationMs
-              ),
+              segments,
             }
           : null,
     },
@@ -265,8 +281,23 @@ async function encodeWithMediabunnyOnMainThread(
   // Best-effort, like the styled-video export: a clip with no usable audio still
   // exports, silently. Must be registered before `output.start()`.
   const screenshot = canvas.screenshot
+  const segments = videoLayer
+    ? applyClipMuteToSegments(
+        resolveVideoSegments(
+          canvas.videoClips ?? [],
+          videoLayer.sourceDurationMs,
+          // Keyframes only exist on the Animate timeline, so this export is
+          // always Animate's.
+          getVideoMutedPreferenceSync("animate")
+        ),
+        canvas.animation?.clips ?? []
+      )
+    : []
   const audioBlob =
-    videoLayer && screenshot && isVideoSrc(screenshot)
+    videoLayer &&
+    screenshot &&
+    isVideoSrc(screenshot) &&
+    !segmentsAreSilent(segments)
       ? await loadAudioSourceBlob(screenshot, signal)
       : null
   const sourceAudio =
@@ -275,10 +306,7 @@ async function encodeWithMediabunnyOnMainThread(
           source: audioBlob,
           format,
           outputFormat,
-          segments: resolveVideoSegments(
-            canvas.videoClips ?? [],
-            videoLayer.sourceDurationMs
-          ),
+          segments,
           exportDurationSec: frameCount / fps,
           signal,
         })

@@ -17,6 +17,8 @@ import {
   RiPaletteLine,
   RiRotateLockLine,
   RiSunLine,
+  RiVolumeMuteLine,
+  RiVolumeUpLine,
   RiZoomInLine,
 } from "@remixicon/react"
 
@@ -67,6 +69,10 @@ type TimelineClipProps = {
   onPointerDownClip: (e: React.PointerEvent, mode: ClipDragMode) => void
   onPointerMoveClip: (e: React.PointerEvent) => void
   onPointerUpClip: (e: React.PointerEvent) => void
+  /** Audio state this clip imposes on its own window; undefined inherits. */
+  muted: boolean | undefined
+  /** Cycles this clip's window through mute → unmute → inherit. */
+  onCycleMute: () => void
   onDuplicate: () => void
   onClearEffects: () => void
   onDeselect: () => void
@@ -147,6 +153,8 @@ export function TimelineClip({
   beyond,
   razorMode,
   iconKeys,
+  muted,
+  onCycleMute,
   dupShortcut,
   clearEffectsShortcut,
   deselectShortcut,
@@ -228,6 +236,18 @@ export function TimelineClip({
           {/* One icon per animated property, then its name — dropped as the
               clip gets narrower. */}
           <div className="pointer-events-none flex h-full items-center gap-1.5 px-2.5">
+            {muted !== undefined && width >= 30 && (
+              <span
+                className="flex shrink-0 items-center"
+                title={muted ? "Audio muted here" : "Audio on here"}
+              >
+                {muted ? (
+                  <RiVolumeMuteLine className="size-3.5 text-white/90" />
+                ) : (
+                  <RiVolumeUpLine className="size-3.5 text-white/90" />
+                )}
+              </span>
+            )}
             {uniqueIcons.length > 0 && width >= 44 && (
               <span className="flex shrink-0 items-center gap-1">
                 {uniqueIcons.slice(0, 4).map((Icon, i) => (
@@ -272,6 +292,15 @@ export function TimelineClip({
         </motion.div>
       </ContextMenuTrigger>
       <ContextMenuContent className="w-52">
+        <ContextMenuItem onSelect={onCycleMute}>
+          {muted === true ? <RiVolumeUpLine /> : <RiVolumeMuteLine />}
+          {muted === true
+            ? "Unmute this clip"
+            : muted === false
+              ? "Follow video audio"
+              : "Mute this clip"}
+        </ContextMenuItem>
+        <ContextMenuSeparator />
         <ContextMenuItem onSelect={onDuplicate}>
           <RiFileCopyLine />
           {multi ? `Duplicate ${selectedCount} clips` : "Duplicate"}

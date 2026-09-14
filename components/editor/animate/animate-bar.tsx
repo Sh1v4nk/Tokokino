@@ -24,10 +24,32 @@ import { AnimateControls } from "./animate-controls"
 import { ClipTransitionButton } from "./clip-transition-toolbar"
 import { TimelineClip } from "./timeline-clip"
 import { TimelineWaveform } from "./timeline-waveform"
+import { clipMuteRanges } from "@/lib/editor/audio-timeline"
+import type { AnimationClip } from "@/lib/editor/state-types"
 import { RAZOR_CURSOR } from "./timeline-clip-interactions"
 import { TimelineVideoClip } from "./timeline-video-clip"
 import { TimelineRuler } from "./timeline-ruler"
 import { useAnimateTimeline } from "./use-animate-timeline"
+
+/**
+ * Keyframe mute windows expressed as fractions of one video section's width, so
+ * the waveform dims exactly the span a clip claims instead of the whole track.
+ */
+function mutedBandsFor(
+  sectionStartMs: number,
+  sectionLengthMs: number,
+  clips: AnimationClip[]
+) {
+  if (sectionLengthMs <= 0) return undefined
+  const bands = clipMuteRanges(clips)
+    .map((range) => ({
+      fromFrac: (range.startMs - sectionStartMs) / sectionLengthMs,
+      toFrac: (range.endMs - sectionStartMs) / sectionLengthMs,
+      muted: range.muted,
+    }))
+    .filter((band) => band.toFrac > 0 && band.fromFrac < 1)
+  return bands.length > 0 ? bands : undefined
+}
 
 export function AnimateBar() {
   const {
@@ -107,6 +129,7 @@ export function AnimateBar() {
     deleteVideo,
     duplicateVideo,
     toggleVideoClipMute,
+    cycleClipMute,
     copyVideoClip,
     deselectVideo,
   } = useAnimateTimeline()
@@ -321,6 +344,8 @@ export function AnimateBar() {
                       clip.id === interactingClipId || !clipsAnimated
                     }
                     iconKeys={resolveClipIcons(clip)}
+                    muted={clip.muted}
+                    onCycleMute={() => cycleClipMute(clip.id)}
                     dupShortcut={dupShortcut}
                     clearEffectsShortcut={clearEffectsShortcut}
                     deselectShortcut={deselectShortcut}
@@ -391,7 +416,9 @@ export function AnimateBar() {
                           trimming={trimmingVideo && videoSelected}
                           dragging={draggingVideoClipIds.includes(clip.id)}
                           razorMode={razorMode}
-                          muted={clip.muted ?? getVideoMutedPreferenceSync()}
+                          muted={
+                            clip.muted ?? getVideoMutedPreferenceSync("animate")
+                          }
                           onPointerDownClip={(event, mode) =>
                             onVideoPointerDown(event, clip.id, mode)
                           }
@@ -445,8 +472,13 @@ export function AnimateBar() {
                                     durationMs={strip.durationMs}
                                     muted={
                                       clip.muted ??
-                                      getVideoMutedPreferenceSync()
+                                      getVideoMutedPreferenceSync("animate")
                                     }
+                                    mutedBands={mutedBandsFor(
+                                      clip.timelineStartMs,
+                                      clip.endMs - clip.startMs,
+                                      clips
+                                    )}
                                   />
                                 )}
                               <div className="pointer-events-none absolute inset-y-0 right-0 z-10 flex items-center gap-1.5 bg-linear-to-l from-black/70 via-black/40 to-transparent pr-3 pl-14 text-white">

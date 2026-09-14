@@ -1,7 +1,7 @@
 import bash from "@shikijs/langs/bash"
 import json from "@shikijs/langs/json"
-import githubDarkDefault from "@shikijs/themes/github-dark-default"
-import githubLight from "@shikijs/themes/github-light"
+import gruvboxLightHard from "@shikijs/themes/gruvbox-light-hard"
+import vesper from "@shikijs/themes/vesper"
 import {
   transformerNotationDiff,
   transformerNotationErrorLevel,
@@ -19,8 +19,8 @@ import { createJavaScriptRegexEngine } from "shiki/engine/javascript"
 // and theme below has to be imported explicitly.
 const LANGS = { bash, json } as const
 const THEMES = {
-  "github-light": githubLight,
-  "github-dark-default": githubDarkDefault,
+  "gruvbox-light-hard": gruvboxLightHard,
+  vesper,
 } as const
 
 export type CodeBlockLanguage = keyof typeof LANGS
@@ -50,8 +50,8 @@ export const CodeBlockContent = async ({
     ? (await highlighter).codeToHtml(children, {
         lang: language ?? "bash",
         themes: themes ?? {
-          light: "github-light",
-          dark: "github-dark-default",
+          light: "gruvbox-light-hard",
+          dark: "vesper",
         },
         transformers: [
           transformerNotationDiff({

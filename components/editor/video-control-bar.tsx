@@ -50,7 +50,9 @@ export function VideoControlBar({ compact = false }: { compact?: boolean }) {
   const isVideo = isVideoSrc(screenshot)
 
   const [isPlaying, setIsPlaying] = React.useState(false)
-  const [muted, setMuted] = React.useState(() => getVideoMutedPreferenceSync())
+  const [muted, setMuted] = React.useState(() =>
+    getVideoMutedPreferenceSync("present")
+  )
   const [currentTime, setCurrentTime] = React.useState(0)
   const [duration, setDuration] = React.useState(0)
   const scrubbingRef = React.useRef(false)
@@ -68,7 +70,7 @@ export function VideoControlBar({ compact = false }: { compact?: boolean }) {
   const persistMuted = React.useCallback((next: boolean) => {
     applyVideoMutedToAll(useVideoRegistry.getState().videos, next)
     setMuted(next)
-    setVideoMutedPreference(next)
+    setVideoMutedPreference(next, "present")
   }, [])
 
   React.useEffect(() => {

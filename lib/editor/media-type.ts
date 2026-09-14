@@ -75,8 +75,12 @@ export function videoElementHasAudio(video: HTMLVideoElement): boolean {
     return v.audioTracks.length > 0
   }
   if (typeof v.webkitAudioDecodedByteCount === "number") {
-    if (v.webkitAudioDecodedByteCount > 0) return true
-    return video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA
+    // Chromium counts bytes only once audio actually decodes, so a video that
+    // is loaded but has never played reports 0 whether or not it has a track.
+    // That is undecidable, not silent — answering "silent" here leaves audio
+    // controls disabled until the user presses play. Callers with a real answer
+    // (the waveform decodes the source outright) should prefer theirs.
+    return true
   }
   return true
 }

@@ -1,4 +1,4 @@
-import type { AnimationClip } from "./state-types"
+import type { AnimationClip, VideoTimelineClip } from "./state-types"
 
 export const MIN_CLIP_MS = 200
 export const GHOST_SLOT_MS = 1000
@@ -27,6 +27,31 @@ export function timelineEndFor(
     lastClipEnd + TIMELINE_HEADROOM_MS
   )
   return Math.min(MAX_DURATION_MS, needed)
+}
+
+/**
+ * Where the video track ends on the timeline, or null when a clip runs to the
+ * end of the source: the store has no idea how long the media actually is, so
+ * an open-ended clip's length is only knowable once something writes `endMs`.
+ */
+export function videoTrackEndMs(
+  clips: readonly VideoTimelineClip[]
+): number | null {
+  let end = 0
+  for (const clip of clips) {
+    if (clip.endMs === null) return null
+    const startMs = clip.timelineStartMs ?? clip.startMs
+    end = Math.max(end, startMs + (clip.endMs - clip.startMs))
+  }
+  return end
+}
+
+/** Where the keyframe track ends on the timeline. */
+export function keyframeTrackEndMs(clips: readonly AnimationClip[]): number {
+  return clips.reduce(
+    (max, clip) => Math.max(max, clip.startMs + clip.durationMs),
+    0
+  )
 }
 
 export function formatTime(ms: number): string {

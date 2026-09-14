@@ -17,6 +17,7 @@ import {
   prepareCloneVideoLayer,
   resolveVideoSegments,
   resolveVideoSourceTimeMs,
+  segmentsAreSilent,
 } from "@/lib/editor/animation-export/video-layer"
 import type { VideoTimelineClip } from "@/lib/editor/state-types"
 
@@ -79,6 +80,7 @@ describe("resolveVideoSegments", () => {
         sourceStartMs: 0,
         sourceEndMs: DURATION,
         timelineStartMs: 0,
+        muted: false,
       },
     ])
   })
@@ -98,6 +100,23 @@ describe("resolveVideoSegments", () => {
         sourceStartMs: 0,
         sourceEndMs: DURATION,
         timelineStartMs: 0,
+        muted: false,
+      },
+    ])
+  })
+
+  it("drops a section that clamps to no playable source span", () => {
+    const clips: VideoTimelineClip[] = [
+      { id: "a", timelineStartMs: 0, startMs: 0, endMs: 2_000 },
+      { id: "past-end", timelineStartMs: 20_000, startMs: 30_000, endMs: null },
+    ]
+
+    expect(resolveVideoSegments(clips, DURATION)).toEqual([
+      {
+        sourceStartMs: 0,
+        sourceEndMs: 2_000,
+        timelineStartMs: 0,
+        muted: false,
       },
     ])
   })
@@ -109,9 +128,55 @@ describe("resolveVideoSegments", () => {
     ]
 
     expect(resolveVideoSegments(clips, DURATION)).toEqual([
-      { sourceStartMs: 7_000, sourceEndMs: DURATION, timelineStartMs: 0 },
-      { sourceStartMs: 1_000, sourceEndMs: 3_000, timelineStartMs: 3_000 },
+      {
+        sourceStartMs: 7_000,
+        sourceEndMs: DURATION,
+        timelineStartMs: 0,
+        muted: false,
+      },
+      {
+        sourceStartMs: 1_000,
+        sourceEndMs: 3_000,
+        timelineStartMs: 3_000,
+        muted: false,
+      },
     ])
+  })
+
+  it("resolves a section's own mute over the device preference", () => {
+    const clips: VideoTimelineClip[] = [
+      { id: "a", timelineStartMs: 0, startMs: 0, endMs: 2_000, muted: false },
+      { id: "b", timelineStartMs: 2_000, startMs: 2_000, endMs: 4_000 },
+    ]
+
+    expect(
+      resolveVideoSegments(clips, DURATION, true).map((s) => s.muted)
+    ).toEqual([false, true])
+  })
+})
+
+describe("segmentsAreSilent", () => {
+  it("is true only when no section contributes audio", () => {
+    const clips: VideoTimelineClip[] = [
+      { id: "a", timelineStartMs: 0, startMs: 0, endMs: 2_000 },
+      { id: "b", timelineStartMs: 2_000, startMs: 2_000, endMs: 4_000 },
+    ]
+
+    expect(segmentsAreSilent(resolveVideoSegments(clips, DURATION, true))).toBe(
+      true
+    )
+    expect(
+      segmentsAreSilent(resolveVideoSegments(clips, DURATION, false))
+    ).toBe(false)
+    expect(
+      segmentsAreSilent(
+        resolveVideoSegments(
+          [{ ...clips[0], muted: false }, clips[1]],
+          DURATION,
+          true
+        )
+      )
+    ).toBe(false)
   })
 })
 
