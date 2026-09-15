@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "vitest"
+import { beforeEach, describe, expect, it, vi } from "vitest"
 
 import { useEditorStore } from "@/lib/editor/store"
 import type { Background } from "@/lib/editor/state-types"
@@ -71,5 +71,89 @@ describe("setBackground silent option", () => {
     expect(clips().find((c) => c.id === id)?.pose?.background.value).toBe(
       optimized.value
     )
+  })
+})
+
+describe("setBackground silent option — history", () => {
+  const optimized = (): Background => ({
+    type: "image",
+    value: "data:image/png;base64,optimized",
+    sourceUrl: activeCanvas().background.sourceUrl,
+  })
+
+  beforeEach(() => {
+    store.getState().reset()
+    // A fresh editor: nothing to undo or redo, no merge group open.
+    store.setState({ past: [], future: [], _lastGroup: null, _lastTs: 0 })
+  })
+
+  it("does not add an undo step on an untouched editor", () => {
+    const next = optimized()
+
+    store.getState().setBackground(next, undefined, { silent: true })
+
+    expect(store.getState().past).toEqual([])
+    expect(activeCanvas().background).toEqual(next)
+  })
+
+  it("leaves past and the open merge group untouched", () => {
+    store.getState().setPadding(80)
+    const { past, _lastGroup, _lastTs } = store.getState()
+    expect(_lastGroup).toBe("padding")
+
+    store.getState().setBackground(optimized(), undefined, { silent: true })
+
+    const after = store.getState()
+    expect(after.past).toBe(past)
+    expect(after._lastGroup).toBe(_lastGroup)
+    expect(after._lastTs).toBe(_lastTs)
+  })
+
+  it("preserves redo", () => {
+    store.getState().setPadding(80)
+    store.getState().undo()
+    const { future } = store.getState()
+    expect(future).toHaveLength(1)
+
+    store.getState().setBackground(optimized(), undefined, { silent: true })
+    expect(store.getState().future).toBe(future)
+
+    store.getState().redo()
+    expect(activeCanvas().padding).toBe(80)
+    expect(store.getState().future).toEqual([])
+  })
+
+  it("targets the given canvas only", () => {
+    const secondId = store.getState().addCanvas()!
+    const { past } = store.getState()
+    const first = store.getState().present.canvases[0]
+    const next = optimized()
+
+    store.getState().setBackground(next, secondId, { silent: true })
+
+    const canvases = store.getState().present.canvases
+    expect(canvases.find((c) => c.id === secondId)?.background).toEqual(next)
+    expect(canvases[0]).toBe(first)
+    expect(store.getState().past).toBe(past)
+  })
+
+  it("still notifies store subscribers", () => {
+    const listener = vi.fn()
+    const unsubscribe = store.subscribe(listener)
+
+    store.getState().setBackground(optimized(), undefined, { silent: true })
+
+    expect(listener).toHaveBeenCalledTimes(1)
+    unsubscribe()
+  })
+
+  it("records a real user edit in history", () => {
+    store.getState().setBackground({ type: "solid", value: "#ff0000" })
+
+    const s = store.getState()
+    expect(s.past).toHaveLength(1)
+    expect(s.future).toEqual([])
+    expect(s._lastGroup).toBe("background")
+    expect(activeCanvas().background.value).toBe("#ff0000")
   })
 })

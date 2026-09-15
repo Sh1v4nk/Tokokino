@@ -233,32 +233,39 @@ export const createCanvasStyleActions = ({
       // the background. Swap the value on the committed canvas and on any clip
       // pose holding the same source, leaving `effects` untouched.
       if (opts?.silent) {
-        commitCanvas(
-          canvasId,
-          (canvas) => {
-            const anim = getCanvasAnimation(canvas)
-            if (anim.clips.length === 0) return { background: b }
-            const prev = canvas.background
-            const matchesPrev = (bg: Background | undefined) =>
-              bg?.type === "image" &&
-              prev.type === "image" &&
-              bg.sourceUrl === prev.sourceUrl
-            const clips = anim.clips.map((c) => {
-              const pose =
-                c.pose && matchesPrev(c.pose.background)
-                  ? { ...c.pose, background: b }
-                  : c.pose
-              const baseline =
-                c.baseline && matchesPrev(c.baseline.background)
-                  ? { ...c.baseline, background: b }
-                  : c.baseline
-              if (pose === c.pose && baseline === c.baseline) return c
-              return { ...c, pose, baseline }
-            })
-            return { background: b, animation: { ...anim, clips } }
+        const state = get()
+        const targetId = canvasId ?? state.present.activeCanvasId
+        const swap = (canvas: CanvasState): CanvasState => {
+          const anim = getCanvasAnimation(canvas)
+          if (anim.clips.length === 0) return { ...canvas, background: b }
+          const prev = canvas.background
+          const matchesPrev = (bg: Background | undefined) =>
+            bg?.type === "image" &&
+            prev.type === "image" &&
+            bg.sourceUrl === prev.sourceUrl
+          const clips = anim.clips.map((c) => {
+            const pose =
+              c.pose && matchesPrev(c.pose.background)
+                ? { ...c.pose, background: b }
+                : c.pose
+            const baseline =
+              c.baseline && matchesPrev(c.baseline.background)
+                ? { ...c.baseline, background: b }
+                : c.baseline
+            if (pose === c.pose && baseline === c.baseline) return c
+            return { ...c, pose, baseline }
+          })
+          return { ...canvas, background: b, animation: { ...anim, clips } }
+        }
+        // Silent swaps should not affect editor history.
+        set({
+          present: {
+            ...state.present,
+            canvases: state.present.canvases.map((canvas) =>
+              canvas.id === targetId ? swap(canvas) : canvas
+            ),
           },
-          "background"
-        )
+        })
         return
       }
       commitCanvasEffect(
