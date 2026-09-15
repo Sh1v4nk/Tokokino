@@ -1233,7 +1233,7 @@ export function TopBar() {
     try {
       // Templates apply composition only — their screenshot media is stripped
       // in loadTemplateState — so there are no server videos to hydrate.
-      applyTemplate(template)
+      applyTemplate(template, { undoable: true })
       capture("template_applied", {
         template_id: template.id,
         template_name: template.name,
@@ -1704,6 +1704,7 @@ export function TopBar() {
         <TemplatesDialog
           open={templatesOpen}
           onOpenChange={setTemplatesOpen}
+          hasUnsavedWork={hasUnsavedWork}
           onApply={handleApplyTemplate}
         />
 

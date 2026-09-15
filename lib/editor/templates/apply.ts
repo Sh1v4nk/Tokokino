@@ -31,7 +31,10 @@ export function templateApplyReplacedState(error: unknown) {
  * the load and throw, so the caller reports a failure instead of a success
  * toast over a silently dead timeline.
  */
-export function applyTemplate(template: Template) {
+export function applyTemplate(
+  template: Template,
+  opts?: { undoable?: boolean }
+) {
   if (!isDraftStateLike(template.state)) {
     throw new TemplateApplyError(
       `"${template.name}" is missing its canvas.`,
@@ -52,7 +55,7 @@ export function applyTemplate(template: Template) {
     )
   }
 
-  useEditorStore.getState().loadTemplateState(present, ui)
+  useEditorStore.getState().loadTemplateState(present, ui, opts)
 
   if (isAnimation && !liveClipCount(useEditorStore.getState().present)) {
     throw new TemplateApplyError(

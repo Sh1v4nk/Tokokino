@@ -140,6 +140,44 @@ describe("applyTemplate", () => {
 
     expect(() => applyTemplate(template)).toThrow(/missing its canvas/)
   })
+
+  it("starts a fresh history by default", () => {
+    useEditorStore.getState().setPadding(37)
+    useEditorStore.getState().undo()
+
+    applyTemplate(
+      makeTemplate({
+        category: "image",
+        isAnimateMode: false,
+        canvas: { padding: 96 },
+      })
+    )
+
+    expect(activeCanvas()?.padding).toBe(96)
+    expect(useEditorStore.getState().past).toEqual([])
+    expect(useEditorStore.getState().future).toEqual([])
+  })
+
+  it("keeps the previous composition as one undo point when undoable", () => {
+    useEditorStore.getState().setPadding(37)
+    const pastLength = useEditorStore.getState().past.length
+
+    applyTemplate(
+      makeTemplate({
+        category: "image",
+        isAnimateMode: false,
+        canvas: { padding: 96 },
+      }),
+      { undoable: true }
+    )
+
+    expect(activeCanvas()?.padding).toBe(96)
+    expect(useEditorStore.getState().past).toHaveLength(pastLength + 1)
+
+    useEditorStore.getState().undo()
+
+    expect(activeCanvas()?.padding).toBe(37)
+  })
 })
 
 describe("templateApplyErrorMessage", () => {

@@ -149,7 +149,12 @@ export type EditorActions = {
    * project. Same restore path as {@link loadDraftState} but never links to a
    * saved draft, so the next Save creates a fresh draft.
    */
-  loadTemplateState: (state: Partial<EditorState>, ui?: DraftLoadUi) => void
+  loadTemplateState: (
+    state: Partial<EditorState>,
+    ui?: DraftLoadUi,
+    /** `undoable`: keep the current composition as one undo point. */
+    opts?: { undoable?: boolean }
+  ) => void
   applyPresetSnapshot: (
     snapshot: CustomPresetGeometry,
     canvasId?: string
