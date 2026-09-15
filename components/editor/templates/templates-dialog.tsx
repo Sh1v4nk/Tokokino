@@ -10,6 +10,16 @@ import {
 } from "@remixicon/react"
 import { toast } from "sonner"
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -211,13 +221,19 @@ function EmptyState({ tab }: { tab: TemplateTab }) {
 export function TemplatesDialog({
   open,
   onOpenChange,
+  hasUnsavedWork = false,
   onApply,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
+  /** When true, picking a template asks before replacing the composition. */
+  hasUnsavedWork?: boolean
   onApply: (template: Template) => void | Promise<void>
 }) {
   const [tab, setTab] = React.useState<TemplateTab>("all")
+  const [pendingTemplate, setPendingTemplate] = React.useState<Template | null>(
+    null
+  )
   const templates = templatesForTab(tab)
 
   const handleApply = React.useCallback(
@@ -227,6 +243,23 @@ export function TemplatesDialog({
     },
     [onApply, onOpenChange]
   )
+
+  const handleSelect = React.useCallback(
+    (template: Template) => {
+      if (hasUnsavedWork) {
+        setPendingTemplate(template)
+        return
+      }
+      void handleApply(template)
+    },
+    [hasUnsavedWork, handleApply]
+  )
+
+  const confirmApply = () => {
+    const template = pendingTemplate
+    setPendingTemplate(null)
+    if (template) void handleApply(template)
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -263,12 +296,40 @@ export function TemplatesDialog({
                 <TemplateCard
                   key={template.id}
                   template={template}
-                  onApply={handleApply}
+                  onApply={handleSelect}
                 />
               ))}
             </div>
           </div>
         )}
+
+        <AlertDialog
+          open={pendingTemplate !== null}
+          onOpenChange={(next) => {
+            if (!next) setPendingTemplate(null)
+          }}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Apply template?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This will replace your current composition. This action can be
+                undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter className="grid grid-cols-2 gap-2 sm:flex">
+              <AlertDialogCancel className="cursor-pointer">
+                Cancel
+              </AlertDialogCancel>
+              <AlertDialogAction
+                className="cursor-pointer"
+                onClick={confirmApply}
+              >
+                Apply Template
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </DialogContent>
     </Dialog>
   )

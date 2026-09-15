@@ -10,7 +10,7 @@ import type {
 } from "../../state-types"
 import { applyPoseToCanvas, buildRestingPose } from "../animation-helpers"
 import { computeNextLayerZ } from "../layer-stack"
-import { CLEAR_SELECTION } from "../defaults"
+import { CLEAR_SELECTION, HISTORY_LIMIT } from "../defaults"
 import { makeId } from "../canvas-helpers"
 import { normalizeEditorState } from "../draft-persistence"
 import type { CommitContext } from "../commit-context"
@@ -223,7 +223,7 @@ export const createProjectActions = ({ set, get, commit }: CommitContext) =>
         ...CLEAR_SELECTION,
       })
     },
-    loadTemplateState: (state, ui) => {
+    loadTemplateState: (state, ui, opts) => {
       const incoming = normalizeEditorState(state)
       // A template ships a screenshot only so it can render a thumbnail — the
       // composition (background, frame, shadow, layout…) is what we apply. Drop
@@ -279,8 +279,10 @@ export const createProjectActions = ({ set, get, commit }: CommitContext) =>
           selectedClipId = sorted[sorted.length - 1]?.id ?? null
         }
       }
+      const past = opts?.undoable ? [...get().past, prev] : []
+      if (past.length > HISTORY_LIMIT) past.shift()
       set({
-        past: [],
+        past,
         present,
         future: [],
         _lastGroup: null,
