@@ -968,7 +968,7 @@ export function OpenProjectDialog({
                     }}
                   >
                     {/* The base trigger paints its own surface (`bg-input/20`
-                        plus a `dark:bg-input/30` that survives tailwind-merge),
+                        plus a `dark:bg-input/30` that survives cn),
                         which reads as a nested box inside the search field.
                         Both themes are zeroed so this is plain inline text. */}
                     <SelectTrigger
