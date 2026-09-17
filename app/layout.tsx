@@ -257,7 +257,7 @@ export default function RootLayout({
           speed={300}
           easing="ease"
         />
-        <div className="mx-auto max-w-[1800px]">
+        <div className="mx-auto max-w-[1800px] overflow-x-clip">
           <ThemeProvider defaultTheme="dark">
             <ResetScrollOnNavigate />
             <TooltipProvider delayDuration={150}>
