@@ -67,7 +67,7 @@ export function ScrollFadeBody({
       <motion.div
         aria-hidden
         className={cn(
-          "pointer-events-none absolute inset-x-0 top-0 h-6 bg-gradient-to-b from-popover to-transparent",
+          "pointer-events-none absolute inset-x-0 top-0 h-6 bg-linear-to-b from-popover to-transparent",
           fadeClassName
         )}
         style={{ opacity: isScrollable ? topOpacity : 0 }}
@@ -75,7 +75,7 @@ export function ScrollFadeBody({
       <motion.div
         aria-hidden
         className={cn(
-          "pointer-events-none absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-popover to-transparent",
+          "pointer-events-none absolute inset-x-0 bottom-0 h-8 bg-linear-to-t from-popover to-transparent",
           fadeClassName
         )}
         style={{ opacity: isScrollable ? bottomOpacity : 0 }}

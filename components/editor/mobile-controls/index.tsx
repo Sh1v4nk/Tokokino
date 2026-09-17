@@ -413,7 +413,7 @@ export function MobileControls({
         )}
       >
         {/* Scrim — keeps the flat controls legible over a bright canvas */}
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 -z-10 h-44 bg-gradient-to-t from-background via-background/85 to-transparent" />
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 -z-10 h-44 bg-linear-to-t from-background via-background/85 to-transparent" />
 
         {/* Inline options panel (every category except Frame) */}
         <AnimatePresence>

@@ -26,7 +26,7 @@ export function MockupFrame({ compact = false }: { compact?: boolean }) {
           <CornerTick className="absolute -bottom-1.5 -left-1.5 size-3 -rotate-90 text-accent-foreground/70" />
           <CornerTick className="absolute -right-1.5 -bottom-1.5 size-3 rotate-180 text-primary/70" />
 
-          <div className="relative overflow-hidden rounded-[14px] border border-border/60 bg-gradient-to-b from-background/80 to-background/40">
+          <div className="relative overflow-hidden rounded-[14px] border border-border/60 bg-linear-to-b from-background/80 to-background/40">
             <div className="flex items-center justify-between border-b border-border/50 bg-background/40 px-4 py-2.5">
               <div className="flex items-center gap-1.5">
                 <span className="size-2.5 rounded-full bg-primary/55" />

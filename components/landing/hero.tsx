@@ -82,7 +82,7 @@ export function Hero() {
             <span className="whitespace-nowrap">Make every product visual</span>
             <br />
             <span className="relative inline-block whitespace-nowrap">
-              <span className="bg-gradient-to-br from-foreground via-foreground to-foreground/60 bg-clip-text text-transparent">
+              <span className="bg-linear-to-br from-foreground via-foreground to-foreground/60 bg-clip-text text-transparent">
                 feel{" "}
               </span>
               <span className="text-primary">intentional.</span>

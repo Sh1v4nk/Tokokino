@@ -79,7 +79,7 @@ export default async function LoginPage({
           </div>
 
           <div
-            className="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-background via-background/20 to-transparent dark:from-black/80 dark:via-black/20"
+            className="absolute inset-x-0 bottom-0 h-2/3 bg-linear-to-t from-background via-background/20 to-transparent dark:from-black/80 dark:via-black/20"
             aria-hidden
           />
 
